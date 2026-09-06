@@ -4,7 +4,6 @@ import kotlin.math.sqrt
 
 object MathUtils {
 
-
     fun cosineSimilarity(v1: FloatArray, v2: FloatArray): Float {
         require(v1.size == v2.size) { "Embedding dimensions must match: ${v1.size} vs ${v2.size}" }
         var dot = 0f
@@ -28,7 +27,6 @@ object MathUtils {
         }
         return normalized
     }
-
 
     fun calculateClusterCentroid(embeddings: List<FloatArray>): FloatArray {
         if (embeddings.isEmpty()) return FloatArray(0)

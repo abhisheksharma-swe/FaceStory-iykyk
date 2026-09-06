@@ -12,13 +12,19 @@ import com.iykyk.facestory.data.ml.MLKitFaceDetector
 import com.iykyk.facestory.data.ml.TFLiteFaceEmbedder
 import com.iykyk.facestory.data.video.VideoFrameExtractor
 import com.iykyk.facestory.domain.model.ProcessingState
+import com.iykyk.facestory.domain.usecase.NoFacesDetectedException
 import com.iykyk.facestory.domain.usecase.ProcessVideoUseCase
+import com.iykyk.facestory.util.UniversalLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class CollageViewModel(application: Application) : AndroidViewModel(application) {
+
+    companion object {
+        private const val TAG = "CollageViewModel"
+    }
 
     private val _state = MutableStateFlow<ProcessingState>(ProcessingState.Idle)
     val state: StateFlow<ProcessingState> = _state.asStateFlow()
@@ -38,9 +44,15 @@ class CollageViewModel(application: Application) : AndroidViewModel(application)
                 val result = processVideoUseCase(uri) { progress, stage ->
                     _state.value = ProcessingState.Processing(progress, stage)
                 }
-                _state.value = ProcessingState.Success(result.people, result.collage)
+                _state.value = ProcessingState.Success(result.people, result.collage, result.diagnostics)
+            } catch (e: NoFacesDetectedException) {
+                _state.value = ProcessingState.NoFacesFound(
+                    framesScanned = e.framesScanned,
+                    blurryFramesSkipped = e.blurrySkipped
+                )
             } catch (e: Exception) {
-                _state.value = ProcessingState.Error(e.localizedMessage ?: "Processing failed")
+                UniversalLogger.e(TAG, "Video processing failed: ${e.message}", e)
+                _state.value = ProcessingState.Error(e.localizedMessage ?: "Processing failed. Please try again.")
             }
         }
     }
@@ -49,8 +61,9 @@ class CollageViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val uri = exporter.saveToGallery(bitmap)
             if (uri != null) {
-                Toast.makeText(getApplication(), "Saved to Pictures/FaceStory!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(getApplication(), "Saved to Pictures/FaceStory", Toast.LENGTH_SHORT).show()
             } else {
+                UniversalLogger.e(TAG, "Failed to save collage to gallery")
                 Toast.makeText(getApplication(), "Failed to save image", Toast.LENGTH_SHORT).show()
             }
         }
